@@ -19,6 +19,8 @@ import {
 } from 'three';
 import CustomShaderMaterial from 'three-custom-shader-material/vanilla';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -33,7 +35,6 @@ import simplex4DNoise from './shader/include/simplex4DNoise.glsl?raw';
 import shaderPassFragmentShader from './shader/pass/fragment.glsl?raw';
 import shaderPassVertexShader from './shader/pass/vertex.glsl?raw';
 import vertexShader from './shader/vertex.glsl?raw';
-
 // @ts-ignore
 ShaderChunk['simplex2DNoise'] = simplex2DNoise;
 // @ts-ignore
@@ -71,7 +72,7 @@ el.append(renderer.domElement);
 const scene = new Scene();
 
 const camera = new PerspectiveCamera(75, size.width / size.height, 0.1, 1000);
-camera.position.set(3, 3, 3);
+camera.position.set(5, 5, 5);
 camera.lookAt(scene.position);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -123,6 +124,15 @@ composer.addPass(outPass);
 const cubeTextureLoader = new CubeTextureLoader();
 cubeTextureLoader.setPath('/src/assets/texture/0/');
 
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('node_modules/three/examples/jsm/libs/draco/');
+dracoLoader.setDecoderConfig({ type: 'js' });
+dracoLoader.preload();
+
+const gltfLoader = new GLTFLoader();
+gltfLoader.dracoLoader = dracoLoader;
+gltfLoader.setPath('/src/assets/');
+
 /**
  * Textures
  */
@@ -166,7 +176,11 @@ const sphereMaterial = new CustomShaderMaterial({
 }) as unknown as MeshPhysicalMaterial;
 const sphere = new Mesh(sphereGeometry, sphereMaterial);
 sphere.layers.enable(BLOOM_SCENE);
-scene.add(sphere);
+
+gltfLoader.load('suzanne.glb', (data) => {
+	data.scene.children[0].material = sphereMaterial;
+	scene.add(data.scene);
+});
 
 /**
  * Pane
