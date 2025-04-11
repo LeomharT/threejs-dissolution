@@ -3,12 +3,18 @@ import {
 	Color,
 	CubeReflectionMapping,
 	CubeTextureLoader,
+	DirectionalLight,
 	DoubleSide,
 	IcosahedronGeometry,
 	Layers,
 	Mesh,
+	MeshDepthMaterial,
 	MeshPhysicalMaterial,
+	MeshStandardMaterial,
+	PCFSoftShadowMap,
 	PerspectiveCamera,
+	PlaneGeometry,
+	RGBADepthPacking,
 	Scene,
 	ShaderChunk,
 	ShaderMaterial,
@@ -67,12 +73,14 @@ renderer.setPixelRatio(window.devicePixelRatio);
 renderer.outputColorSpace = SRGBColorSpace;
 renderer.toneMapping = CineonToneMapping;
 renderer.toneMappingExposure = 0.1;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = PCFSoftShadowMap;
 el.append(renderer.domElement);
 
 const scene = new Scene();
 
 const camera = new PerspectiveCamera(75, size.width / size.height, 0.1, 1000);
-camera.position.set(5, 5, 5);
+camera.position.set(5, 5, -5);
 camera.lookAt(scene.position);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -174,13 +182,49 @@ const sphereMaterial = new CustomShaderMaterial({
 	vertexShader,
 	uniforms,
 }) as unknown as MeshPhysicalMaterial;
+const depthMaterial = new CustomShaderMaterial({
+	baseMaterial: MeshDepthMaterial,
+
+	depthPacking: RGBADepthPacking,
+
+	fragmentShader: fragmentShader
+		.replace(`csm_Emissive = uEdgeColor;`, '')
+		.replace('csm_Metalness = 0.0;', '')
+		.replace('csm_Roughness = 1.0;', ''),
+	vertexShader,
+	uniforms,
+}) as unknown as MeshDepthMaterial;
 const sphere = new Mesh(sphereGeometry, sphereMaterial);
 sphere.layers.enable(BLOOM_SCENE);
 
 gltfLoader.load('suzanne.glb', (data) => {
-	data.scene.children[0].material = sphereMaterial;
-	scene.add(data.scene);
+	const suzanne = data.scene.children[0] as Mesh;
+
+	suzanne.material = sphereMaterial;
+	suzanne.customDepthMaterial = depthMaterial;
+
+	suzanne.castShadow = true;
+	suzanne.receiveShadow = true;
+	scene.add(suzanne);
 });
+
+const shadowTest = new Mesh(
+	new PlaneGeometry(10, 10, 32, 32),
+	new MeshStandardMaterial({ color: 0xffffff })
+);
+shadowTest.rotation.x = Math.PI;
+shadowTest.position.z = 5.0;
+shadowTest.receiveShadow = true;
+scene.add(shadowTest);
+
+/**
+ * Light
+ */
+
+const directionalLight = new DirectionalLight(0xffffff, 1.0);
+directionalLight.position.set(0, 0, -5.0);
+directionalLight.castShadow = true;
+scene.add(directionalLight);
 
 /**
  * Pane
